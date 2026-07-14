@@ -34,14 +34,24 @@ const Sidebar = () => {
       path: "/admin/dashboard",
     },
     {
-      title: "Leads",
+      title: "Prepaid Fibre Leads",
       icon: <Groups />,
       path: "/admin/leads",
     },
     {
-      title: "Agents",
+      title: "Contract Fibre Leads",
+      icon: <Groups />,
+      path: "/user/contractfibreleads",
+    },
+    {
+      title: "Fields Agents",
       icon: <People />,
-      path: "/admin/agents",
+      path: "/user/field-updates",
+    },
+    {
+      title: "14 Days Free Trial",
+      icon: <People />,
+      path: "/user/free-trial",
     },
   ];
 

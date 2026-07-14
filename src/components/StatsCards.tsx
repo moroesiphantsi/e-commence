@@ -1,52 +1,173 @@
-import { Grid, Paper, Typography } from "@mui/material";
+import React from "react";
+import {
+  Grid,
+  Paper,
+  Typography,
+  Box
+} from "@mui/material";
+
+import {
+  People,
+  HourglassTop,
+  PendingActions,
+  CheckCircle,
+  Cancel
+} from "@mui/icons-material";
+
 
 const StatsCards = ({ leads }: any) => {
-  const total = leads.length;
-  const newLeads = leads.filter((l: any) => l.status === "New Lead").length;
-  const contacted = leads.filter((l: any) => l.status === "Contacted").length;
-  const installed = leads.filter((l: any) => l.status === "Installed").length;
-
-  const conversion = total ? ((installed / total) * 100).toFixed(1) : 0;
 
 
-  const Card = ({ title, value }: any) => (
-    <Paper sx={cardStyle}>
-      <Typography fontSize={14}>{title}</Typography>
-      <Typography fontSize={28} fontWeight="bold">
-        {value}
-      </Typography>
-    </Paper>
-  );
+  const totalApplications = leads.length;
 
-  return (
-    <Grid container spacing={2} sx={{ mt: 2 }}>
-      <Grid item xs={6} md={3}>
-        <Card title="Total Leads" value={total} />
-      </Grid>
 
-      <Grid item xs={6} md={3}>
-        <Card title="New Leads" value={newLeads} />
-      </Grid>
+  const inProcess = leads.filter(
+    (lead:any)=> lead.status === "In Process"
+  ).length;
 
-      <Grid item xs={6} md={3}>
-        <Card title="Installed" value={installed} />
-      </Grid>
 
-      <Grid item xs={6} md={3}>
-        <Card title="Contacted" value={contacted} />
-      </Grid>
+  const pending = leads.filter(
+    (lead:any)=> lead.status === "Pending"
+  ).length;
 
-      <Grid item xs={6} md={3}>
-        <Card title="Conversion %" value={conversion + "%"} />
-      </Grid>
-    </Grid>
-  );
+
+  const approved = leads.filter(
+    (lead:any)=> lead.status === "Approved"
+  ).length;
+
+
+  const declined = leads.filter(
+    (lead:any)=> lead.status === "Declined"
+  ).length;
+
+
+const cards = [
+
+{
+title:"Total Applications This Month",
+value:totalApplications,
+icon:<People/>
+},
+
+
+{
+title:"In Process",
+value:inProcess,
+icon:<HourglassTop/>
+},
+
+
+{
+title:"Pending",
+value:pending,
+icon:<PendingActions/>
+},
+
+
+{
+title:"Approved",
+value:approved,
+icon:<CheckCircle/>
+},
+
+
+{
+title:"Declined",
+value:declined,
+icon:<Cancel/>
+}
+
+];
+
+
+
+return (
+
+<Grid container spacing={3}>
+
+
+{
+cards.map((card,index)=>(
+
+<Grid item xs={12} sm={6} md={2.4} key={index}>
+
+
+<Paper
+
+sx={{
+
+p:3,
+
+borderRadius:4,
+
+textAlign:"center",
+
+background:
+"linear-gradient(135deg,#ffffff,#e0f2fe)",
+
+boxShadow:
+"0 10px 30px rgba(0,0,0,0.15)"
+
+}}
+
+>
+
+
+<Box
+sx={{
+fontSize:40,
+color:"#2563eb"
+}}
+>
+
+{card.icon}
+
+</Box>
+
+
+
+<Typography
+fontWeight="bold"
+sx={{
+mt:1,
+fontSize:15
+}}
+>
+
+{card.title}
+
+</Typography>
+
+
+
+<Typography
+variant="h4"
+fontWeight="bold"
+color="#0f172a"
+>
+
+{card.value}
+
+</Typography>
+
+
+
+</Paper>
+
+
+</Grid>
+
+
+))
+
+}
+
+
+</Grid>
+
+);
+
 };
+
 
 export default StatsCards;
-
-const cardStyle = {
-  p: 2,
-  borderRadius: 3,
-  bgcolor: "white",
-};

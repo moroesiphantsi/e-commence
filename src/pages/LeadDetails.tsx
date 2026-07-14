@@ -26,8 +26,16 @@ const LeadDetails = ({ lead }: any) => {
       <Divider sx={{ my: 2 }} />
 
       <Typography>
-        <b>Email:</b> {lead.email}
-      </Typography>
+ <b>Date Received:</b>{" "}
+ {lead.createdAt 
+ ? new Date(lead.createdAt).toLocaleString()
+ : "N/A"}
+</Typography>
+
+
+<Typography>
+ <b>Email:</b> {lead.email}
+</Typography>
 
       <Typography>
         <b>Contact:</b> {lead.contact}
