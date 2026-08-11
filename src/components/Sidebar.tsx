@@ -29,9 +29,9 @@ const Sidebar = () => {
 
   const menuItems = [
     {
-      title: "Dashboard",
+      title: "E-commence Dashboard",
       icon: <Dashboard />,
-      path: "/admin/dashboard",
+      path: "/admin/e-commence",
     },
     {
       title: "Prepaid Fibre Leads",
@@ -40,18 +40,18 @@ const Sidebar = () => {
     },
     {
       title: "Contract Fibre Leads",
-      icon: <Groups />,
-      path: "/user/contractfibreleads",
+      icon: <Groups />, 
+      path: "/admin/contractfibreleads",
     },
     {
       title: "Fields Agents",
       icon: <People />,
-      path: "/user/field-updates",
+      path: "/admin/agents",
     },
     {
       title: "14 Days Free Trial",
       icon: <People />,
-      path: "/user/free-trial",
+      path: "/admin/free/trial",
     },
   ];
 
@@ -146,7 +146,7 @@ const Sidebar = () => {
         <List sx={{ px: 2 }}>
           {/* 🏠 HOME BUTTON ADDED */}
           <ListItemButton
-            onClick={() => navigate("/")}
+            onClick={() => navigate("/admin/dashboard")}
             sx={{
               borderRadius: 3,
               mb: 1,
@@ -161,7 +161,7 @@ const Sidebar = () => {
               <Home />
             </ListItemIcon>
 
-            <ListItemText primary="Home" />
+            <ListItemText primary="Home Dashboard" />
           </ListItemButton>
 
           {/* EXISTING MENU */}

@@ -74,7 +74,7 @@ const TopBar = () => {
               WebkitTextFillColor: "transparent",
             }}
           >
-            Fibre Management System
+            The Connection Hub System
           </Typography>
 
           <Typography
