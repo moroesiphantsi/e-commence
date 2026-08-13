@@ -35,7 +35,7 @@ function App() {
       <Route path="/admin/e-commence" element={<AdminECommence />} />
 
 
-
+     <Route path="/user/e-commence" element={<ECommence/>}/>
       <Route path="/user/free-trial" element={<FreeTrial />} />
       <Route path="/user/contractfibreleads" element={<ContractFibreLeads />} />
       <Route path="/user/field-updates" element={<FieldUpdates/>}/>
