@@ -22,7 +22,6 @@ import {
   Select,
   MenuItem,
   FormControl,
-
   InputLabel,
   Checkbox,
   FormControlLabel,
@@ -34,7 +33,6 @@ import {
   Card,
   CardContent,
   CardActions
-
 } from '@mui/material';
 
 // --- MATERIAL UI ICONS ---
@@ -44,48 +42,64 @@ import {
   Delete,
   TrendingUp,
   People,
-  CreditCard,
   Analytics,
   Edit,
-
   Download,
   Search,
-  AutoAwesome,
   CheckCircle,
   AttachMoney,
-  LocalOffer,
-  FilePresent,
-  CheckBox,
-  TaskAlt 
+  TaskAlt,
+  Place
 } from '@mui/icons-material';
 
 // --- FIREBASE IMPORT ---
 import { db } from '../firebase'; // Import your configured Firebase Database instance
 import { ref, onValue, set, push, remove, update } from 'firebase/database';
 
-// --- TYPES & INTERFACES ---
+// --- TYPES & INTERFACES (SYNCHRONIZED WITH E-COMMERCE CLIENT) ---
 interface Product {
   id: string;
   name: string;
   speed: string;
+  uploadSpeed?: string;
   price: number;
-
   type: 'Fibre' | 'LTE' | 'Mesh Wi-Fi';
+  dataAllowance?: string;
+  installationFee?: string;
+  routerInfo?: string;
+  contractType?: string;
   popular?: boolean;
   description: string;
-  inStock: boolean;
+  inStock?: boolean;
 }
 
-interface Subscriber {
+interface OrderRecord {
   id: string;
-  name: string;
-  email: string;
+  transactionId: string;
   accountNo: string;
-  plan: string;
-  amount: number;
-  dueDate: string;
-  status: 'Paid' | 'Unpaid';
-  registrationDate: string;
+  date: string;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  serviceAddress: string;
+  paymentMethod: string;
+  amountPaid: number;
+  status: 'Order Received' | 'Installation Scheduled' | 'Technician Assigned' | 'Technician On The Way' | 'Installation Active' | 'Line Activated' | 'Cancelled';
+  trackingStepIndex: number;
+  installationDate: string;
+  installationSlot: string;
+}
+
+interface SupportTicket {
+  id: string;
+  ticketNumber?: string;
+  clientName?: string;
+  customerEmail?: string;
+  subject?: string;
+  issueType?: string;
+  status: 'Open' | 'Assigned' | 'In Progress' | 'Resolved' | 'Closed';
+  message?: string;
+  date?: string;
 }
 
 interface PromotionCode {
@@ -95,7 +109,6 @@ interface PromotionCode {
   active: boolean;
 }
 
-
 interface ISPLog {
   id: string;
   timestamp: string;
@@ -103,28 +116,38 @@ interface ISPLog {
   source: 'SYSTEM' | 'MERCHANT' | 'DISPATCH' | 'ADMIN';
 }
 
-interface SupportTicket {
+interface CoverageLead {
   id: string;
-  clientName: string;
-  subject: string;
-  status: 'Open' | 'Resolved';
-  message: string;
+  street: string;
+  suburb: string;
+  city: string;
+  postalCode: string;
+  available: boolean;
+  timestamp: string;
 }
 
-// --- MUI DARK 2026 THEME CREATION ---
-const darkTheme = createTheme({
-  palette: {
-    mode: 'dark',
-    primary: {
-      main: '#06b6d4', // Cyan 500
-    },
+const TRACKING_STEPS = [
+  'Order Received',
+  'Installation Scheduled',
+  'Technician Assigned',
+  'Technician On The Way',
+  'Installation Active',
+  'Line Activated'
+];
 
+// --- MUI WHITE BACKGROUND / LIGHT THEME CREATION ---
+const lightTheme = createTheme({
+  palette: {
+    mode: 'light',
+    primary: {
+      main: '#2563eb', // Indigo Blue
+    },
     secondary: {
-      main: '#4f46e5', // Indigo 600
+      main: '#0284c7', // Sky Blue
     },
     background: {
-      default: '#070913',
-      paper: 'rgba(13, 17, 34, 0.45)', // Custom glassy panel background
+      default: '#ffffff',
+      paper: '#ffffff',
     },
     success: {
       main: '#10b981', // Emerald 500
@@ -136,30 +159,28 @@ const darkTheme = createTheme({
       main: '#ef4444', // Rose 500
     },
     text: {
-      primary: '#f1f5f9', // Slate 100
-      secondary: '#94a3b8', // Slate 400
+      primary: '#0f172a',
+      secondary: '#475569',
     },
   },
-  typography: {fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif', },components: {MuiCssBaseline: {styleOverrides: `
+  typography: { fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif' },
+  components: {
+    MuiCssBaseline: {
+      styleOverrides: `
         body {
           overflow-x: hidden;
-          background-attachment: fixed;
+          background-color: #ffffff;
         }
-        /* Custom scrollbar for diagnostic logs */
         .custom-scrollbar::-webkit-scrollbar {
           width: 6px;
         }
         .custom-scrollbar::-webkit-scrollbar-track {
-          background: rgba(255, 255, 255, 0.02);
+          background: rgba(0, 0, 0, 0.02);
         }
         .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(6, 182, 212, 0.2);
+          background: rgba(37, 99, 235, 0.3);
           border-radius: 4px;
         }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: rgba(6, 182, 212, 0.4);
-        }
-
       `,
     },
     MuiPaper: {
@@ -167,9 +188,9 @@ const darkTheme = createTheme({
         root: {
           backdropFilter: 'blur(20px)',
           WebkitBackdropFilter: 'blur(20px)',
-          border: '1px solid rgba(255, 255, 255, 0.04)',
+          border: '1px solid rgba(0, 0, 0, 0.08)',
           borderRadius: '24px',
-          boxShadow: '0 10px 30px -10px rgba(0, 0, 0, 0.5)',
+          boxShadow: '0 10px 30px -10px rgba(0, 0, 0, 0.05)',
         },
       },
     },
@@ -177,23 +198,20 @@ const darkTheme = createTheme({
       styleOverrides: {
         root: {
           borderRadius: '16px',
-          textTransform: 'uppercase',
           fontWeight: 700,
-          letterSpacing: '1px',
           padding: '10px 20px',
         },
       },
-
     },
     MuiTableCell: {
       styleOverrides: {
         root: {
-          borderBottom: '1px solid rgba(255, 255, 255, 0.04)',
+          borderBottom: '1px solid rgba(0, 0, 0, 0.06)',
           padding: '16px 20px',
         },
         head: {
           fontWeight: 700,
-          color: '#94a3b8',
+          color: '#475569',
           textTransform: 'uppercase',
           fontSize: '11px',
           letterSpacing: '1px',
@@ -204,15 +222,15 @@ const darkTheme = createTheme({
 });
 
 export default function AdminECommerce() {
-  const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'contracts' | 'promotions' | 'support'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'orders' | 'promotions' | 'support' | 'leads'>('overview');
 
-  
-  // Realtime Database States
+  // Realtime Database States (Synchronized with E-Commerce)
   const [products, setProducts] = useState<Product[]>([]);
-  const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
+  const [orders, setOrders] = useState<OrderRecord[]>([]);
   const [promoCodes, setPromoCodes] = useState<PromotionCode[]>([]);
   const [ispLogs, setIspLogs] = useState<ISPLog[]>([]);
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
+  const [coverageLeads, setCoverageLeads] = useState<CoverageLead[]>([]);
 
   // Toast feedback state
   const [toast, setToast] = useState<{ message: string; severity: 'success' | 'error' | 'info' } | null>(null);
@@ -221,35 +239,27 @@ export default function AdminECommerce() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [newName, setNewName] = useState('');
   const [newSpeed, setNewSpeed] = useState('');
-  const [newPrice, setNewPrice] = useState(299);
-
+  const [newUploadSpeed, setNewUploadSpeed] = useState('');
+  const [newPrice, setNewPrice] = useState(695);
   const [newType, setNewType] = useState<'Fibre' | 'LTE' | 'Mesh Wi-Fi'>('Fibre');
+  const [newRouter, setNewRouter] = useState('Wi-Fi 6 Smart Router');
   const [newDesc, setNewDesc] = useState('');
   const [isPopular, setIsPopular] = useState(false);
 
-  // Edit Product Modal / Row Mode
+  // Edit Product Mode
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [editPrice, setEditPrice] = useState<number>(0);
   const [editSpeed, setEditSpeed] = useState<string>('');
 
-  // Form States for adding subscribers
-  const [showAddSubForm, setShowAddSubForm] = useState(false);
-  const [subName, setSubName] = useState('');
-  const [subEmail, setSubEmail] = useState('');
-  const [subPlan, setSubPlan] = useState('');
-  const [subAmount, setSubAmount] = useState(399);
-
   // Form States for Promo Engine
-  const [newPromoCode, setNewPromoCode] = 
-
-useState('');
+  const [newPromoCode, setNewPromoCode] = useState('');
   const [newDiscount, setNewDiscount] = useState(10);
 
-  // Form States for Logs Override Terminal
+  // Form States for Logs
   const [customLog, setCustomLog] = useState('');
   const [logSource, setLogSource] = useState<'SYSTEM' | 'MERCHANT' | 'DISPATCH' | 'ADMIN'>('ADMIN');
 
-  // Search filter for contracts/subscribers
+  // Search filter
   const [searchQuery, setSearchQuery] = useState('');
 
   // Auto-dismiss Toast Notification Helper
@@ -260,14 +270,13 @@ useState('');
   // --- FIREBASE LISTENERS ---
   useEffect(() => {
     const unsubscribeProducts = onValue(ref(db, 'products'), (snapshot) => {
-
       const data = snapshot.val();
       setProducts(data ? Object.keys(data).map(key => ({ id: key, ...data[key] })) : []);
     });
 
-    const unsubscribeSubscribers = onValue(ref(db, 'subscribers'), (snapshot) => {
+    const unsubscribeOrders = onValue(ref(db, 'contractOrders'), (snapshot) => {
       const data = snapshot.val();
-      setSubscribers(data ? Object.keys(data).map(key => ({ id: key, ...data[key] })) : []);
+      setOrders(data ? Object.keys(data).map(key => ({ id: key, ...data[key] })) : []);
     });
 
     const unsubscribePromos = onValue(ref(db, 'promotions'), (snapshot) => {
@@ -277,7 +286,6 @@ useState('');
 
     const unsubscribeLogs = onValue(ref(db, 'isp_logs'), (snapshot) => {
       const data = snapshot.val();
-
       if (data) {
         const formattedList = Object.keys(data).map(key => ({ id: key, ...data[key] }));
         setIspLogs(formattedList.reverse().slice(0, 8));
@@ -286,18 +294,23 @@ useState('');
       }
     });
 
-    const unsubscribeTickets = onValue(ref(db, 'support_tickets'), (snapshot) => {
+    const unsubscribeTickets = onValue(ref(db, 'supportTickets'), (snapshot) => {
       const data = snapshot.val();
       setTickets(data ? Object.keys(data).map(key => ({ id: key, ...data[key] })) : []);
     });
 
+    const unsubscribeLeads = onValue(ref(db, 'leads/coverageChecks'), (snapshot) => {
+      const data = snapshot.val();
+      setCoverageLeads(data ? Object.keys(data).map(key => ({ id: key, ...data[key] })) : []);
+    });
+
     return () => {
       unsubscribeProducts();
-      unsubscribeSubscribers();
+      unsubscribeOrders();
       unsubscribePromos();
       unsubscribeLogs();
       unsubscribeTickets();
-
+      unsubscribeLeads();
     };
   }, []);
 
@@ -322,14 +335,19 @@ useState('');
       await set(push(ref(db, 'products')), {
         name: newName,
         speed: newSpeed,
+        uploadSpeed: newUploadSpeed || `${parseInt(newSpeed) / 2} Mbps`,
         price: Number(newPrice),
         type: newType,
+        dataAllowance: 'Uncapped',
+        installationFee: 'Free Standard',
+        routerInfo: newRouter,
+        contractType: 'Month-to-Month',
         popular: isPopular,
         description: newDesc,
         inStock: true
       });
-      await writeLogEntry(`Admin created a new bundle package: ${newName} (${newSpeed})`, 'ADMIN');
-      showToast(`Successfully added plan: ${newName}`);
+      await writeLogEntry(`Admin created package: ${newName} (${newSpeed})`, 'ADMIN');
+      showToast(`Successfully added package: ${newName}`);
       resetProductForm();
     } catch (error: any) {
       showToast(error.message, 'error');
@@ -339,9 +357,10 @@ useState('');
   const resetProductForm = () => {
     setNewName('');
     setNewSpeed('');
-
-    setNewPrice(299);
+    setNewUploadSpeed('');
+    setNewPrice(695);
     setNewType('Fibre');
+    setNewRouter('Wi-Fi 6 Smart Router');
     setNewDesc('');
     setIsPopular(false);
     setShowAddForm(false);
@@ -352,27 +371,8 @@ useState('');
 
     try {
       await remove(ref(db, `products/${id}`));
-      await writeLogEntry(`Admin removed bundle package: ${name}`, 'ADMIN');
+      await writeLogEntry(`Admin removed package: ${name}`, 'ADMIN');
       showToast(`Deleted ${name} package.`);
-    } catch (error: any) {
-      showToast(error.message, 'error');
-    }
-  };
-
-  const togglePopular = async (id: string, currentVal?: boolean) => {
-
-    try {
-      await update(ref(db, `products/${id}`), { popular: !currentVal });
-      showToast("Updated package popularity indicator.");
-    } catch (error: any) {
-      showToast(error.message, 'error');
-    }
-  };
-
-  const toggleStockStatus = async (id: string, currentVal: boolean) => {
-    try {
-      await update(ref(db, `products/${id}`), { inStock: !currentVal });
-      showToast("Toggled package stock routing status.");
     } catch (error: any) {
       showToast(error.message, 'error');
     }
@@ -380,82 +380,49 @@ useState('');
 
   const saveProductInLine = async (id: string) => {
     try {
-
       await update(ref(db, `products/${id}`), {
         price: Number(editPrice),
         speed: editSpeed
       });
       setEditingProductId(null);
-      showToast("Product speed and pricing updated successfully!");
+      showToast("Package updated successfully!");
     } catch (error: any) {
       showToast(error.message, 'error');
     }
   };
 
-  const togglePaymentStatus = async (subId: string, currentStatus: 'Paid' | 'Unpaid', name: string) => {
+  const handleUpdateOrderStatus = async (orderId: string, newStepIndex: number) => {
     try {
-      const newStatus = currentStatus === 'Paid' ? 'Unpaid' : 'Paid';
-      await update(ref(db, `subscribers/${subId}`), { status: newStatus });
-      await writeLogEntry(`Payment override: marked ${name} as ${newStatus}`, 'MERCHANT');
-      showToast(`Account of ${name} marked as ${newStatus}.`);
-
-    } catch (error: any) {
-      showToast(error.message, 'error');
-    }
-  };
-
-  const handleAddSubscriber = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!subName || !subEmail || !subPlan) return;
-    try {
-      await set(push(ref(db, 'subscribers')), {
-        name: subName,
-        email: subEmail,
-        accountNo: `TCH-${Math.floor(10000 + Math.random() * 90000)}-ZA`,
-        plan: subPlan,
-        amount: Number(subAmount),
-        dueDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        status: 'Unpaid',
-        registrationDate: new Date().toISOString().split('T')[0]
+      const statusName = TRACKING_STEPS[newStepIndex] || 'Line Activated';
+      await update(ref(db, `contractOrders/${orderId}`), {
+        trackingStepIndex: newStepIndex,
+        status: statusName
       });
-      await writeLogEntry(`Subscribed client account generated: ${subName} (${subPlan})`, 'SYSTEM');
-      showToast(`Subscriber ${subName} created successfully.`);
-      setSubName('');
-      setSubEmail('');
-      setSubPlan('');
-      setShowAddSubForm(false);
+      await writeLogEntry(`Order #${orderId} tracking updated to: ${statusName}`, 'DISPATCH');
+      showToast(`Order status updated to ${statusName}`);
     } catch (error: any) {
       showToast(error.message, 'error');
     }
   };
 
-  const handleRemoveSubscriber = async (id: string, name: string) => {
-    if (!window.confirm(`Terminate agreement contract with client "${name}"?`)) return;
+  const handleRemoveOrder = async (id: string, customer: string) => {
+    if (!window.confirm(`Cancel order for client "${customer}"?`)) return;
     try {
-      await remove(ref(db, `subscribers/${id}`));
-      await writeLogEntry(`Contract terminated for client: ${name}`, 'SYSTEM');
-      showToast(`Successfully deleted contract for ${name}.`);
+      await remove(ref(db, `contractOrders/${id}`));
+      await writeLogEntry(`Order cancelled for client: ${customer}`, 'SYSTEM');
+      showToast(`Successfully removed order for ${customer}.`);
     } catch (error: any) {
-
       showToast(error.message, 'error');
     }
   };
 
-  const handleBatchPaidInvoices = async () => {
-    if (!window.confirm("Perform administrative override to mark all client balances as Cleared / Paid?")) return;
+  const handleResolveTicket = async (id: string) => {
     try {
-      const updates: any = {};
-      subscribers.forEach((sub) => {
-        if (sub.status === 'Unpaid') {
-          updates[`/subscribers/${sub.id}/status`] = 'Paid';
-        }
-      });
-      await update(ref(db), updates);
-      await writeLogEntry(`Batch process executed: Cleared overall monthly client ledger.`, 'MERCHANT');
-      showToast("All customer invoices have been administrative-cleared.");
+      await update(ref(db, `supportTickets/${id}`), { status: 'Resolved' });
+      await writeLogEntry(`Support Desk: Ticket resolved (${id})`, 'SYSTEM');
+      showToast(`Support Ticket resolved!`);
     } catch (error: any) {
       showToast(error.message, 'error');
-
     }
   };
 
@@ -468,80 +435,34 @@ useState('');
         discountPercentage: Number(newDiscount),
         active: true
       });
-      showToast(`Promotional code ${newPromoCode.toUpperCase()} configured.`);
+      showToast(`Voucher ${newPromoCode.toUpperCase()} configured.`);
       setNewPromoCode('');
     } catch (error: any) {
       showToast(error.message, 'error');
     }
   };
 
-  const togglePromoActive = async (id: string, currentVal: boolean) => {
-
-    try {
-      await update(ref(db, `promotions/${id}`), { active: !currentVal });
-      showToast("Voucher status adjusted successfully.");
-    } catch (error: any) {
-      showToast(error.message, 'error');
-    }
-  };
-
-  const handleDeletePromo = async (id: string) => {
-    try {
-      await remove(ref(db, `promotions/${id}`));
-      showToast("Voucher removed from active inventory.");
-    } catch (error: any) {
-      showToast(error.message, 'error');
-    }
-  };
-
-  const handleCustomLogSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!customLog) return;
-    await writeLogEntry(customLog, logSource);
-    setCustomLog('');
-    showToast("System diagnostic note published.");
-  };
-
-  const handleResolveTicket = async (id: string, client: string) => {
-    try {
-      await update(ref(db, `support_tickets/${id}`), { status: 'Resolved' });
-      await writeLogEntry(`Help Desk: resolved ticket for client: ${client}`, 'SYSTEM');
-      showToast(`Support Ticket resolved for ${client}`);
-    } catch (error: any) {
-      showToast(error.message, 'error');
-    }
-  };
-
-  const handleExportJSON = () => {
-    const dataStr = "data:text/json;charset=utf-8," + 
-
-encodeURIComponent(JSON.stringify(products, null, 2));
-    const downloadAnchor = document.createElement('a');
-    downloadAnchor.setAttribute("href", dataStr);
-    downloadAnchor.setAttribute("download", "TCH_Product_Catalog_Export.json");
-    document.body.appendChild(downloadAnchor);
-    downloadAnchor.click();
-    downloadAnchor.remove();
-    showToast("Downloaded Product Schema Backups.");
-  };
-
-  const downloadAdminReport = (sub: Subscriber) => {
+  const downloadOrderReceipt = (order: OrderRecord) => {
     const reportText = `
 ===================================================
-      THE CONNECTION HUB - ADMIN PAYMENT PROOF
+      THE CONNECTION HUB - ADMIN ORDER PROOF
 ===================================================
 
-Admin Override ID: ADM-TXN-${Math.floor(100000 + Math.random() * 900000)}
-Account Holder:    ${sub.name}
-Email Address:     ${sub.email}
-Account Number:    ${sub.accountNo}
-Associated Plan:   ${sub.plan}
-Invoice Amount:    R ${sub.amount.toFixed(2)}
-Payment Status:    ${sub.status.toUpperCase()}
+Transaction Ref:       ${order.transactionId}
+Account Holder:        ${order.customerName}
+Email Address:         ${order.customerEmail}
+Phone Number:          ${order.customerPhone}
+Account Number:        ${order.accountNo}
+Installation Address:  ${order.serviceAddress}
+
+--- SERVICE DETAILS ---
+Scheduled Date:    ${order.installationDate} (${order.installationSlot})
+Amount Paid:       R ${order.amountPaid.toFixed(2)}
+Payment Method:    ${order.paymentMethod}
+Status:            ${order.status}
 Generated On:      ${new Date().toISOString().split('T')[0]}
 
-This document acts as verified administrative evidence of payment.
+Verified administrative document.
 The Connection Hub ISP Ltd.
 ===================================================
     `;
@@ -549,65 +470,32 @@ The Connection Hub ISP Ltd.
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `TCH_AdminReceipt_${sub.accountNo}.txt`;
+    link.download = `TCH_OrderReceipt_${order.transactionId}.txt`;
 
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    showToast("Administrative Invoice Downloaded");
+    showToast("Administrative Order Proof Downloaded");
   };
 
   // --- STATISTICAL CALCULATIONS ---
-  const activeSubsCount = subscribers.length;
-  const monthlyRevenue = subscribers.reduce((acc, curr) => acc + curr.amount, 0);
+  const activeOrdersCount = orders.length;
+  const totalRevenue = orders.reduce((acc, curr) => acc + (curr.amountPaid || 0), 0);
+  const openTicketsCount = tickets.filter(t => t.status === 'Open' || t.status === 'In Progress').length;
+  const coverageCheckCount = coverageLeads.length;
 
-  const paidContractsCount = subscribers.filter(s => s.status === 'Paid').length;
-  const percentCollected = activeSubsCount > 0 ? ((paidContractsCount / activeSubsCount) * 100).toFixed(0) : '0';
-  const unpaidTotal = subscribers.filter(s => s.status === 'Unpaid').reduce((acc, curr) => acc + curr.amount, 0);
-  const activePromosCount = promoCodes.filter(p => p.active).length;
-  const openTicketsCount = tickets.filter(t => t.status === 'Open').length;
-
-  const filteredSubscribers = subscribers.filter(sub => 
-    sub.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    sub.accountNo.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    sub.plan.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredOrders = orders.filter(ord =>
+    (ord.customerName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (ord.accountNo || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (ord.transactionId || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (ord.serviceAddress || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
-    <ThemeProvider theme={darkTheme}>
+    <ThemeProvider theme={lightTheme}>
       <CssBaseline />
-      <Box sx={{ minHeight: '100vh', pb: 8, position: 'relative', overflowX: 'hidden' }}>
+      <Box sx={{ minHeight: '100vh', pb: 8, position: 'relative', bgcolor: '#ffffff' }}>
         
-        {/* 2026 GLOW EFFECTS */}
-        <Box
-          sx={{
-
-            position: 'absolute',
-            top: '-10%',
-            left: '-10%',
-            width: '600px',
-            height: '600px',
-            borderRadius: '50%',
-            background: 'linear-gradient(to top right, rgba(6, 182, 212, 0.1), transparent)',
-            filter: 'blur(160px)',
-            pointerEvents: 'none',
-          }}
-        />
-        <Box
-          sx={{
-            position: 'absolute',
-            bottom: '-10%',
-            right: '-10%',
-            width: '700px',
-            height: '700px',
-            borderRadius: '50%',
-            background: 'linear-gradient(to bottom right, rgba(79, 70, 229, 0.1), transparent)',
-            filter: 'blur(180px)',
-            pointerEvents: 'none',
-
-          }}
-        />
-
         {/* HEADER NAVBAR */}
         <Box
           component="header"
@@ -616,48 +504,36 @@ The Connection Hub ISP Ltd.
             top: 0,
             zIndex: 40,
             backdropFilter: 'blur(12px)',
-            bgcolor: 'rgba(7, 9, 19, 0.7)',
-            borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+            bgcolor: 'rgba(255, 255, 255, 0.85)',
+            borderBottom: '1px solid rgba(0, 0, 0, 0.08)',
             py: 2,
           }}
         >
           <Container maxWidth="lg">
-            <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, alignItems: 'center', justifyContent: 'between', gap: 2 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexGrow: 1 }}>
+            <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                 <Box
-
                   sx={{
-                    background: 'linear-gradient(to top right, #06b6d4, #4f46e5)',
+                    background: 'linear-gradient(135deg, #2563eb, #0284c7)',
                     p: 1.5,
                     borderRadius: '16px',
-                    boxShadow: '0 0 30px rgba(6, 182, 212, 0.3)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    '&:hover': { transform: 'rotate(12deg)' },
-                    transition: 'transform 0.3s',
                   }}
                 >
-                  <Wifi sx={{ color: '#000', fontSize: '24px' }} />
+                  <Wifi sx={{ color: '#fff', fontSize: '24px' }} />
                 </Box>
                 <Box>
-                  <Typography variant="h6" sx={{ fontWeight: 900, letterSpacing: '-0.5px' }}>
+                  <Typography variant="h6" sx={{ fontWeight: 900, letterSpacing: '-0.5px', color: '#0f172a' }}>
                     TCH Unified Admin Hub
                   </Typography>
                   <Chip
-                    label="System Active • 2026 Standard"
-
+                    label="Fibre Live Core • Synchronized"
                     size="small"
                     color="primary"
                     variant="outlined"
-                    sx={{
-                      fontSize: '9px',
-                      fontWeight: 'bold',
-                      height: '20px',
-                      textTransform: 'uppercase',
-                      letterSpacing: '1px',
-                      mt: 0.5,
-                    }}
+                    sx={{ fontSize: '9px', fontWeight: 'bold', height: '20px', textTransform: 'uppercase' }}
                   />
                 </Box>
               </Box>
@@ -668,96 +544,69 @@ The Connection Hub ISP Ltd.
                 onChange={(_, value) => setActiveTab(value)}
                 textColor="primary"
                 indicatorColor="primary"
+                variant="scrollable"
+                scrollButtons="auto"
                 sx={{
-                  bgcolor: 'rgba(255, 255, 255, 0.02)',
-
-                  border: '1px solid rgba(255, 255, 255, 0.05)',
+                  bgcolor: 'rgba(0, 0, 0, 0.03)',
+                  border: '1px solid rgba(0, 0, 0, 0.06)',
                   borderRadius: '18px',
                   p: 0.5,
-                  minHeight: 'auto',
-                  '& .MuiTabs-indicator': {
-                    display: 'none',
-                  },
                 }}
               >
-                {(['overview', 'products', 'contracts', 'promotions', 'support'] as const).map((tab) => (
+                {(['overview', 'products', 'orders', 'promotions', 'support', 'leads'] as const).map((tab) => (
                   <Tab
                     key={tab}
                     value={tab}
                     label={
-                      tab === 'promotions'
-                        ? `Vouchers (${promoCodes.length})`
+                      tab === 'orders'
+                        ? `Orders (${orders.length})`
                         : tab === 'support'
                         ? `Tickets (${openTicketsCount})`
+                        : tab === 'leads'
+                        ? `Coverage (${coverageCheckCount})`
                         : tab
                     }
                     sx={{
-
                       fontSize: '11px',
                       fontWeight: 700,
                       textTransform: 'uppercase',
-                      letterSpacing: '0.5px',
                       minHeight: 'auto',
                       px: 2,
                       py: 1.2,
                       borderRadius: '12px',
-                      color: 'text.secondary',
-                      transition: '0.3s',
-                      '&.Mui-selected': {
-                        bgcolor: 'primary.main',
-                        color: '#000',
-                        boxShadow: '0 0 25px rgba(6, 182, 212, 0.35)',
-                      },
-                      '&:hover': {
-                        color: 'text.primary',
-                      },
                     }}
                   />
                 ))}
               </Tabs>
             </Box>
-
           </Container>
         </Box>
 
-        <Container maxWidth="lg" sx={{ mt: 6 }}>
+        <Container maxWidth="lg" sx={{ mt: 5 }}>
+          
           {/* TAB 1: OVERVIEW */}
           {activeTab === 'overview' && (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
               {/* BENTO STATS GRID */}
               <Grid container spacing={3}>
                 <Grid item xs={12} sm={6} md={3}>
-                  <Paper
-                    sx={{
-                      p: 3,
-                      position: 'relative',
-                      overflow: 'hidden',
-                      '&:hover': {
-                        borderColor: 'rgba(6, 182, 212, 0.25)',
-                        transform: 'translateY(-2px)',
-                        boxShadow: '0 15px 35px -10px rgba(6, 182, 212, 0.1)',
-                      },
-                      transition: 'all 0.3s ease-in-out',
-                    }}
-
-                  >
+                  <Paper sx={{ p: 3 }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
                       <Box>
                         <Typography variant="caption" sx={{ textTransform: 'uppercase', fontWeight: 600, color: 'text.secondary' }}>
-                          Projected MRR
+                          Contract Revenue
                         </Typography>
                         <Typography variant="h4" sx={{ fontWeight: 900, mt: 1 }}>
-                          R {monthlyRevenue.toLocaleString()}
+                          R {totalRevenue.toLocaleString()}
                         </Typography>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1.5 }}>
                           <TrendingUp sx={{ fontSize: '14px', color: 'primary.main' }} />
                           <Typography variant="caption" sx={{ color: 'primary.main', fontWeight: 'bold', fontSize: '9px' }}>
-                            LIVE REVENUE NODE
+                            REAL-TIME SYNCED
                           </Typography>
-
                         </Box>
                       </Box>
-                      <Box sx={{ p: 1.5, bgcolor: 'rgba(6, 182, 212, 0.1)', border: '1px solid rgba(6, 182, 212, 0.2)', borderRadius: '12px' }}>
+                      <Box sx={{ p: 1.5, bgcolor: 'rgba(37, 99, 235, 0.1)', borderRadius: '12px' }}>
                         <AttachMoney sx={{ color: 'primary.main' }} />
                       </Box>
                     </Box>
@@ -765,37 +614,23 @@ The Connection Hub ISP Ltd.
                 </Grid>
 
                 <Grid item xs={12} sm={6} md={3}>
-                  <Paper
-                    sx={{
-                      p: 3,
-                      position: 'relative',
-                      overflow: 'hidden',
-                      '&:hover': {
-                        borderColor: 'rgba(16, 185, 129, 0.25)',
-                        transform: 'translateY(-2px)',
-                        boxShadow: '0 15px 35px -10px rgba(16, 185, 129, 0.1)',
-
-                      },
-                      transition: 'all 0.3s ease-in-out',
-                    }}
-                  >
+                  <Paper sx={{ p: 3 }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
                       <Box>
                         <Typography variant="caption" sx={{ textTransform: 'uppercase', fontWeight: 600, color: 'text.secondary' }}>
-                          Active Subs
+                          Fibre Orders
                         </Typography>
                         <Typography variant="h4" sx={{ fontWeight: 900, mt: 1 }}>
-                          {activeSubsCount}
+                          {activeOrdersCount}
                         </Typography>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1.5 }}>
                           <CheckCircle sx={{ fontSize: '14px', color: 'success.main' }} />
                           <Typography variant="caption" sx={{ color: 'success.main', fontWeight: 'bold', fontSize: '9px' }}>
-
-                            {paidContractsCount} INVOICES CLEAR
+                            ACTIVE CONTRACTS
                           </Typography>
                         </Box>
                       </Box>
-                      <Box sx={{ p: 1.5, bgcolor: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)', borderRadius: '12px' }}>
+                      <Box sx={{ p: 1.5, bgcolor: 'rgba(16, 185, 129, 0.1)', borderRadius: '12px' }}>
                         <People sx={{ color: 'success.main' }} />
                       </Box>
                     </Box>
@@ -803,130 +638,80 @@ The Connection Hub ISP Ltd.
                 </Grid>
 
                 <Grid item xs={12} sm={6} md={3}>
-                  <Paper
-                    sx={{
-                      p: 3,
-                      position: 'relative',
-                      overflow: 'hidden',
-                      '&:hover': {
-                        borderColor: 'rgba(239, 68, 68, 0.25)',
-                        transform: 'translateY(-2px)',
-
-                        boxShadow: '0 15px 35px -10px rgba(239, 68, 68, 0.1)',
-                      },
-                      transition: 'all 0.3s ease-in-out',
-                    }}
-                  >
+                  <Paper sx={{ p: 3 }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
                       <Box>
                         <Typography variant="caption" sx={{ textTransform: 'uppercase', fontWeight: 600, color: 'text.secondary' }}>
-                          Outstanding
+                          Open Desk Tickets
                         </Typography>
-                        <Typography variant="h4" sx={{ fontWeight: 900, color: 'error.main', mt: 1 }}>
-                          R {unpaidTotal.toLocaleString()}
+                        <Typography variant="h4" sx={{ fontWeight: 900, color: openTicketsCount > 0 ? 'warning.main' : 'text.primary', mt: 1 }}>
+                          {openTicketsCount}
                         </Typography>
                         <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: 1.5, fontSize: '9px' }}>
-                          Efficiency at {percentCollected}%
+                          Requires Attention
                         </Typography>
-
                       </Box>
-                      <Box sx={{ p: 1.5, bgcolor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '12px' }}>
-                        <CreditCard sx={{ color: 'error.main' }} />
+                      <Box sx={{ p: 1.5, bgcolor: 'rgba(245, 158, 11, 0.1)', borderRadius: '12px' }}>
+                        <TaskAlt sx={{ color: 'warning.main' }} />
                       </Box>
                     </Box>
                   </Paper>
                 </Grid>
 
                 <Grid item xs={12} sm={6} md={3}>
-                  <Paper
-                    sx={{
-                      p: 3,
-                      position: 'relative',
-                      overflow: 'hidden',
-                      '&:hover': {
-                        borderColor: 'rgba(124, 58, 237, 0.25)',
-                        transform: 'translateY(-2px)',
-                        boxShadow: '0 15px 35px -10px rgba(124, 58, 237, 0.1)',
-                      },
-
-                      transition: 'all 0.3s ease-in-out',
-                    }}
-                  >
+                  <Paper sx={{ p: 3 }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
                       <Box>
                         <Typography variant="caption" sx={{ textTransform: 'uppercase', fontWeight: 600, color: 'text.secondary' }}>
-                          Promo Reach
+                          Coverage Checks
                         </Typography>
                         <Typography variant="h4" sx={{ fontWeight: 900, color: 'secondary.main', mt: 1 }}>
-                          {activePromosCount} Active
+                          {coverageCheckCount}
                         </Typography>
                         <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: 1.5, fontSize: '9px' }}>
-                          Deployed vouchers
+                          GIS Searches
                         </Typography>
                       </Box>
-                      <Box sx={{ p: 1.5, bgcolor: 'rgba(79, 70, 229, 0.1)', border: '1px solid rgba(79, 70, 229, 0.2)', borderRadius: '12px' }}>
-                        <LocalOffer sx={{ color: 'secondary.main' }} />
+                      <Box sx={{ p: 1.5, bgcolor: 'rgba(2, 132, 199, 0.1)', borderRadius: '12px' }}>
+                        <Place sx={{ color: 'secondary.main' }} />
                       </Box>
                     </Box>
                   </Paper>
                 </Grid>
               </Grid>
 
-              {/* TELEMETRY & LOGGER SECTION */}
+              {/* LIVE TELEMETRY LOGS */}
               <Grid container spacing={4}>
                 <Grid item xs={12} lg={8}>
-                  <Paper sx={{ p: 4, height: '100%', display: 'flex', flexDirection: 'column' }}>
+                  <Paper sx={{ p: 4 }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                         <Analytics sx={{ color: 'primary.main' }} />
                         <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
-                          Live Telemetry Logs
-
+                          Real-time System Audit Telemetry
                         </Typography>
                       </Box>
-                      <Chip label="Live Streaming" size="small" color="success" variant="outlined" sx={{ fontSize: '9px', fontWeight: 'bold', height: '20px' }} />
+                      <Chip label="Live Stream" size="small" color="success" variant="outlined" sx={{ fontSize: '9px', fontWeight: 'bold' }} />
                     </Box>
 
-                    <Box className="custom-scrollbar" sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, maxHeight: '320px', overflowY: 'auto', pr: 1 }}>
+                    <Box className="custom-scrollbar" sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, maxHeight: '320px', overflowY: 'auto' }}>
                       {ispLogs.map((log) => (
                         <Box
                           key={log.id}
                           sx={{
                             p: 1.5,
                             borderRadius: '12px',
-                            bgcolor: 'rgba(255,255,255,0.01)',
-                            border: '1px solid rgba(255,255,255,0.03)',
+                            bgcolor: 'rgba(0, 0, 0, 0.02)',
+                            border: '1px solid rgba(0, 0, 0, 0.05)',
                             display: 'flex',
                             justifyContent: 'space-between',
-                            alignItems: 'start',
-                            fontSize: '11px',
-
-                            fontFamily: 'monospace',
+                            alignItems: 'center',
                           }}
                         >
-                          <Box>
-                            <Typography component="span" sx={{ color: 'text.secondary', mr: 1, fontSize: '11px', fontFamily: 'monospace' }}>
-                              [{log.timestamp}]
-                            </Typography>
-                            <Typography
-                              component="span"
-                              sx={{
-                                color:
-                                  log.source === 'ADMIN' ? 'secondary.main' :
-                                  log.source === 'SYSTEM' ? 'primary.main' :
-                                  log.source === 'MERCHANT' ? 'success.main' : 'warning.main',
-                                fontWeight: log.source === 'SYSTEM' ? 'bold' : 'normal',
-                                fontSize: '11px',
-                                fontFamily: 'monospace'
-                              }}
-
-                            >
-                              {log.message}
-                            </Typography>
-                          </Box>
-                          <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                            {log.source}
+                          <Typography variant="caption" sx={{ fontFamily: 'monospace' }}>
+                            [{log.timestamp}] <span style={{ color: '#0284c7', fontWeight: 600 }}>{log.message}</span>
                           </Typography>
+                          <Chip label={log.source} size="small" sx={{ fontSize: '8px', height: '18px' }} />
                         </Box>
                       ))}
                     </Box>
@@ -936,47 +721,47 @@ The Connection Hub ISP Ltd.
                 <Grid item xs={12} lg={4}>
                   <Paper sx={{ p: 4 }}>
                     <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>
-                      Diagnostic Bypass Terminal
+                      Diagnostic Override Terminal
                     </Typography>
                     <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 3 }}>
-
-                      Inject override parameters directly to live diagnostic streams for routine test events.
+                      Publish logs to live system feeds.
                     </Typography>
 
-                    <form onSubmit={handleCustomLogSubmit}>
-                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+                    <form onSubmit={(e) => {
+                      e.preventDefault();
+                      if (customLog) {
+                        writeLogEntry(customLog, logSource);
+                        setCustomLog('');
+                        showToast("Log entry posted.");
+                      }
+                    }}>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                         <FormControl fullWidth size="small">
-                          <InputLabel>Audit Stream Source</InputLabel>
+                          <InputLabel>Source</InputLabel>
                           <Select
                             value={logSource}
-                            label="Audit Stream Source"
+                            label="Source"
                             onChange={(e) => setLogSource(e.target.value as any)}
-                            sx={{ borderRadius: '12px' }}
                           >
-                            <option value="ADMIN">ADMIN Override</option>
-                            <option value="SYSTEM">SYSTEM Daemon</option>
-                            <option value="MERCHANT">MERCHANT Portal</option>
-
-                            <option value="DISPATCH">DISPATCH Route</option>
+                            <MenuItem value="ADMIN">ADMIN Override</MenuItem>
+                            <MenuItem value="SYSTEM">SYSTEM Daemon</MenuItem>
+                            <MenuItem value="MERCHANT">MERCHANT Portal</MenuItem>
+                            <MenuItem value="DISPATCH">DISPATCH Route</MenuItem>
                           </Select>
                         </FormControl>
 
                         <TextField
-                          label="Payload Stream"
+                          label="Log Message"
                           required
                           multiline
                           rows={3}
                           value={customLog}
                           onChange={(e) => setCustomLog(e.target.value)}
-                          placeholder="e.g. Schedule manual system bypass route..."
-                          fullWidth
                           size="small"
-                          sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
                         />
 
-                        <Button type="submit" variant="contained" color="primary" fullWidth sx={{ textTransform: 'uppercase', py: 1.5 }}>
-
-                          Inject Sequence
+                        <Button type="submit" variant="contained" color="primary" fullWidth>
+                          Publish Entry
                         </Button>
                       </Box>
                     </form>
@@ -986,225 +771,116 @@ The Connection Hub ISP Ltd.
             </Box>
           )}
 
-          {/* TAB 2: PRODUCTS */}
+          {/* TAB 2: PRODUCTS CATALOG */}
           {activeTab === 'products' && (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: { sm: 'center' }, gap: 3 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Box>
-                  <Typography variant="h5" sx={{ fontWeight: 900 }}>Products & Catalog</Typography>
-                  <Typography variant="body2" sx={{ color: 'text.secondary' }}>Manage catalog configurations, toggle parameters, and export clean system structures.</Typography>
+                  <Typography variant="h5" sx={{ fontWeight: 900 }}>Fibre Products Catalog</Typography>
+                  <Typography variant="body2" sx={{ color: 'text.secondary' }}>Updates here reflect instantly on the public storefront.</Typography>
                 </Box>
-                <Box sx={{ display: 'flex', gap: 2 }}>
-                  <Button
-                    onClick={handleExportJSON}
-                    variant="outlined"
-                    startIcon={<FilePresent />}
-                    sx={{ textTransform: 'uppercase', border: '1px solid rgba(255, 255, 255, 0.05)', color: 'text.primary', bgcolor: 'rgba(255, 255, 255, 0.01)', '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.05)' } }}
-                  >
-                    Export JSON
-                  </Button>
-                  <Button
-                    onClick={() => setShowAddForm(!showAddForm)}
-                    variant="contained"
-                    color="primary"
-                    startIcon={<Add />}
-                    sx={{ boxShadow: '0 0 20px rgba(6, 182, 212, 0.2)' }}
-                  >
-
-                    {showAddForm ? 'Close Panel' : 'Publish Plan'}
-                  </Button>
-                </Box>
+                <Button
+                  onClick={() => setShowAddForm(!showAddForm)}
+                  variant="contained"
+                  color="primary"
+                  startIcon={<Add />}
+                >
+                  {showAddForm ? 'Close Architect' : 'Add New Plan'}
+                </Button>
               </Box>
 
               {/* ADD PRODUCT FORM */}
               {showAddForm && (
-                <Paper sx={{ p: 4, mt: 2 }}>
-                  <Box sx={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)', pb: 2, mb: 3, display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <AutoAwesome color="primary" />
-                    <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>Live Product Architect</Typography>
-                  </Box>
+                <Paper sx={{ p: 4 }}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 3 }}>
+                    Deploy New Package to Storefront
+                  </Typography>
 
                   <form onSubmit={handleAddProduct}>
                     <Grid container spacing={3}>
                       <Grid item xs={12} md={4}>
-                        <TextField
-                          label="Package Name"
-                          required
-
-                          fullWidth
-                          size="small"
-                          value={newName}
-                          onChange={(e) => setNewName(e.target.value)}
-                          placeholder="e.g. Hyper-Fibre Ultimate"
-                          sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
-                        />
+                        <TextField label="Package Name" required fullWidth size="small" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="e.g. Telkom FTTH Core 50 Mbps" />
                       </Grid>
                       <Grid item xs={12} md={4}>
-                        <TextField
-                          label="Bandwidth / Speed Value"
-                          required
-                          fullWidth
-                          size="small"
-                          value={newSpeed}
-                          onChange={(e) => setNewSpeed(e.target.value)}
-                          placeholder="e.g. 500 Mbps"
-                          sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
-                        />
-
+                        <TextField label="Download Speed" required fullWidth size="small" value={newSpeed} onChange={(e) => setNewSpeed(e.target.value)} placeholder="e.g. 50 Mbps" />
                       </Grid>
                       <Grid item xs={12} md={4}>
-                        <TextField
-                          label="Monthly Value (ZAR)"
-                          required
-                          type="number"
-                          fullWidth
-                          size="small"
-                          value={newPrice}
-                          onChange={(e) => setNewPrice(Number(e.target.value))}
-                          sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
-                        />
+                        <TextField label="Upload Speed" fullWidth size="small" value={newUploadSpeed} onChange={(e) => setNewUploadSpeed(e.target.value)} placeholder="e.g. 25 Mbps" />
+                      </Grid>
+                      <Grid item xs={12} md={4}>
+                        <TextField label="Monthly Price (ZAR)" required type="number" fullWidth size="small" value={newPrice} onChange={(e) => setNewPrice(Number(e.target.value))} />
+                      </Grid>
+                      <Grid item xs={12} md={4}>
+                        <TextField label="Router Bundle" fullWidth size="small" value={newRouter} onChange={(e) => setNewRouter(e.target.value)} />
                       </Grid>
                       <Grid item xs={12} md={4}>
                         <FormControl fullWidth size="small">
-                          <InputLabel>Category Type</InputLabel>
-                          <Select
-                            value={newType}
-                            label="Category Type"
-                            onChange={(e) => setNewType(e.target.value as any)}
-
-                            sx={{ borderRadius: '12px' }}
-                          >
+                          <InputLabel>Type</InputLabel>
+                          <Select value={newType} label="Type" onChange={(e) => setNewType(e.target.value as any)}>
                             <MenuItem value="Fibre">Fibre</MenuItem>
                             <MenuItem value="LTE">LTE Wireless</MenuItem>
                             <MenuItem value="Mesh Wi-Fi">Mesh Systems</MenuItem>
                           </Select>
                         </FormControl>
                       </Grid>
-                      <Grid item xs={12} md={8}>
-                        <TextField
-                          label="Marketing Tags & Specs"
-                          required
-                          fullWidth
-                          size="small"
-                          value={newDesc}
-                          onChange={(e) => setNewDesc(e.target.value)}
-                          placeholder="e.g. Unlimited uncapped data with free dynamic router routing..."
-                          sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
-                        />
+                      <Grid item xs={12}>
+                        <TextField label="Package Description" required fullWidth multiline rows={2} size="small" value={newDesc} onChange={(e) => setNewDesc(e.target.value)} />
                       </Grid>
                       <Grid item xs={12}>
-                        <Box sx={{ bgcolor: 'rgba(255, 255, 255, 0.01)', border: '1px solid rgba(255, 255, 255, 0.03)', p: 2, borderRadius: '16px' }}>
-                          <FormControlLabel
-                            control={
-                              <Checkbox
-                                checked={isPopular}
-                                onChange={(e) => setIsPopular(e.target.checked)}
-                                color="primary"
-                              />
-                            }
-                            label="Flag product node as 'Best Value / Most Popular' in landing storefront view"
-                          />
-                        </Box>
+                        <FormControlLabel
+                          control={<Checkbox checked={isPopular} onChange={(e) => setIsPopular(e.target.checked)} color="primary" />}
+                          label="Highlight as 'POPULAR CHOICE' badge on storefront"
+                        />
                       </Grid>
                       <Grid item xs={12} sx={{ display: 'flex', justifyContent: 'end', gap: 2 }}>
-                        <Button onClick={resetProductForm} color="inherit" sx={{ fontWeight: 'bold' }}>
-                          Discard Draft
-                        </Button>
-                        <Button type="submit" variant="contained" color="primary">
-                          Commit to Database
-                        </Button>
+                        <Button onClick={resetProductForm} color="inherit">Discard</Button>
+                        <Button type="submit" variant="contained" color="primary">Publish to Realtime DB</Button>
                       </Grid>
                     </Grid>
                   </form>
                 </Paper>
               )}
 
-              {/* PRODUCT CATALOG GRID */}
+              {/* PRODUCTS GRID */}
               <Grid container spacing={3}>
                 {products.map((prod) => (
                   <Grid item xs={12} md={6} lg={4} key={prod.id}>
-                    <Card
-                      sx={{
-                        height: '100%',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        justifyContent: 'space-between',
-
-                        p: 3,
-                        borderColor: prod.popular ? 'rgba(6, 182, 212, 0.2)' : 'rgba(255, 255, 255, 0.04)',
-                        position: 'relative',
-                      }}
-                    >
+                    <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', p: 3, position: 'relative' }}>
                       {prod.popular && (
-                        <Box
-                          sx={{
-                            position: 'absolute',
-                            top: 16,
-                            right: 16,
-                            bgcolor: 'rgba(6, 182, 212, 0.1)',
-                            border: '1px solid rgba(6, 182, 212, 0.3)',
-                            color: 'primary.main',
-                            fontSize: '9px',
-                            fontWeight: 'bold',
-                            textTransform: 'uppercase',
-                            px: 1.5,
-                            py: 0.5,
-                            borderRadius: '12px',
-                            letterSpacing: '1px',
-                          }}
-
-                        >
-                          Popular
-                        </Box>
+                        <Chip label="POPULAR" color="primary" size="small" sx={{ position: 'absolute', top: 16, right: 16, fontWeight: 'bold' }} />
                       )}
 
                       <CardContent sx={{ p: 0 }}>
-                        <Typography variant="caption" color="primary" sx={{ fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1.5px', mb: 1, display: 'block' }}>
+                        <Typography variant="caption" color="primary" sx={{ fontWeight: 'bold', textTransform: 'uppercase' }}>
                           {prod.type}
                         </Typography>
-                        <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 0.5 }}>
+                        <Typography variant="h6" sx={{ fontWeight: 'bold', mt: 0.5 }}>
                           {prod.name}
                         </Typography>
 
                         {editingProductId === prod.id ? (
-                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, my: 2, p: 2, bgcolor: 'rgba(255, 255, 255, 0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '16px' }}>
-                            <TextField
-
-                              label="Speed Value"
-                              size="small"
-                              value={editSpeed}
-                              onChange={(e) => setEditSpeed(e.target.value)}
-                              fullWidth
-                            />
-                            <TextField
-                              label="ZAR Value"
-                              type="number"
-                              size="small"
-                              value={editPrice}
-                              onChange={(e) => setEditPrice(Number(e.target.value))}
-                              fullWidth
-                            />
-                            <Box sx={{ display: 'flex', justifyContent: 'end', gap: 1 }}>
-                              <Button size="small" color="inherit" onClick={() => setEditingProductId(null)}>Cancel</Button>
-                              <Button size="small" variant="contained" color="primary" onClick={() => saveProductInLine(prod.id)}>Save</Button>
-
-                            </Box>
+                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, my: 2 }}>
+                            <TextField label="Speed" size="small" value={editSpeed} onChange={(e) => setEditSpeed(e.target.value)} fullWidth />
+                            <TextField label="Price (ZAR)" type="number" size="small" value={editPrice} onChange={(e) => setEditPrice(Number(e.target.value))} fullWidth />
+                            <Button size="small" variant="contained" onClick={() => saveProductInLine(prod.id)}>Save Changes</Button>
                           </Box>
                         ) : (
-                          <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, my: 2 }}>
+                          <Box sx={{ my: 2 }}>
                             <Typography variant="h4" sx={{ fontWeight: 900 }}>
-                              R {prod.price}
+                              R {prod.price} <span style={{ fontSize: '14px', color: '#64748b' }}>/pm</span>
                             </Typography>
-                            <Typography variant="caption" color="text.secondary">/ mo</Typography>
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                              Speed: {prod.speed} {prod.uploadSpeed ? `| Up: ${prod.uploadSpeed}` : ''}
+                            </Typography>
                           </Box>
                         )}
 
-                        <Typography variant="body2" color="text.secondary" sx={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', mb: 2 }}>
+                        <Typography variant="body2" color="text.secondary">
                           {prod.description}
                         </Typography>
                       </CardContent>
 
-                      <CardActions sx={{ p: 0, pt: 3, borderTop: '1px solid rgba(255, 255, 255, 0.05)', display: 'flex', justifyContent: 'space-between' }}>
+                      <CardActions sx={{ p: 0, pt: 3, display: 'flex', justifyContent: 'space-between' }}>
                         <Button
                           size="small"
                           color="inherit"
@@ -1217,242 +893,99 @@ The Connection Hub ISP Ltd.
                         >
                           Edit
                         </Button>
-                        <Box sx={{ display: 'flex', gap: 1 }}>
-                          <Tooltip title="Toggle Shop Feature">
-                            <IconButton
-                              size="small"
-                              onClick={() => togglePopular(prod.id, prod.popular)}
-                              sx={{
-                                border: '1px solid rgba(255,255,255,0.05)',
-                                color: prod.popular ? 'primary.main' : 'text.secondary',
-                                bgcolor: prod.popular ? 'rgba(6, 182, 212, 0.1)' : 'transparent',
-                              }}
-                            >
-                              <AutoAwesome sx={{ fontSize: '18px' }} />
-                            </IconButton>
-                          </Tooltip>
 
-                          <Tooltip title="Toggle Live Stock Status">
-                            <IconButton
-                              size="small"
-                              onClick={() => toggleStockStatus(prod.id, prod.inStock)}
-                              sx={{
-                                border: '1px solid rgba(255,255,255,0.05)',
-                                color: prod.inStock ? 'success.main' : 'error.main',
-                                bgcolor: prod.inStock ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                              }}
-
-                            >
-                              <CheckBox sx={{ fontSize: '18px' }} />
-                            </IconButton>
-                          </Tooltip>
-
-                          <Tooltip title="Delete Package">
-                            <IconButton
-                              size="small"
-                              onClick={() => handleDeleteProduct(prod.id, prod.name)}
-                              sx={{ color: 'error.main', border: '1px solid rgba(239, 68, 68, 0.2)', bgcolor: 'rgba(239, 68, 68, 0.05)' }}
-                            >
-                              <Delete sx={{ fontSize: '18px' }} />
-                            </IconButton>
-                          </Tooltip>
-                        </Box>
+                        <IconButton size="small" color="error" onClick={() => handleDeleteProduct(prod.id, prod.name)}>
+                          <Delete fontSize="small" />
+                        </IconButton>
                       </CardActions>
                     </Card>
                   </Grid>
                 ))}
               </Grid>
-
             </Box>
           )}
 
-          {/* TAB 3: CONTRACTS & LEDGERS */}
-          {activeTab === 'contracts' && (
+          {/* TAB 3: ORDERS & CONTRACTS */}
+          {activeTab === 'orders' && (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <Box sx={{ display: 'flex', flexDirection: { xs: 'column', lg: 'row' }, justifyContent: 'space-between', alignItems: { lg: 'center' }, gap: 3 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Box>
-                  <Typography variant="h5" sx={{ fontWeight: 900 }}>Contracts Ledger</Typography>
-                  <Typography variant="body2" sx={{ color: 'text.secondary' }}>View real-time subscriber contracts, download invoices, and toggle billing compliance.</Typography>
+                  <Typography variant="h5" sx={{ fontWeight: 900 }}>Client Contract Orders</Typography>
+                  <Typography variant="body2" sx={{ color: 'text.secondary' }}>Track installation stages and customer contracts submitted through checkout.</Typography>
                 </Box>
 
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
-                  <TextField
-                    size="small"
-
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search query..."
-                    InputProps={{
-                      startAdornment: <Search sx={{ color: 'text.secondary', mr: 1, fontSize: '20px' }} />,
-                    }}
-                    sx={{
-                      '& .MuiOutlinedInput-root': { borderRadius: '16px' },
-                      minWidth: '240px',
-                    }}
-                  />
-
-                  <Button
-                    onClick={handleBatchPaidInvoices}
-                    variant="outlined"
-                    color="success"
-                    startIcon={<CheckCircle />}
-                    sx={{ bgcolor: 'rgba(16, 185, 129, 0.05)' }}
-                  >
-                    Clear Ledger
-
-                  </Button>
-
-                  <Button
-                    onClick={() => setShowAddSubForm(!showAddSubForm)}
-                    variant="contained"
-                    color="primary"
-                    startIcon={<Add />}
-                  >
-                    Add Sub
-                  </Button>
-                </Box>
+                <TextField
+                  size="small"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search customer, account or address..."
+                  InputProps={{ startAdornment: <Search sx={{ mr: 1, color: 'text.secondary' }} /> }}
+                  sx={{ minWidth: 280 }}
+                />
               </Box>
 
-              {/* ADD SUBSCRIBER FORM */}
-              {showAddSubForm && (
-                <Paper sx={{ p: 4 }}>
-                  <Box sx={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)', pb: 2, mb: 3 }}>
-                    <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>Create Customer Node</Typography>
-                  </Box>
-
-                  <form onSubmit={handleAddSubscriber}>
-                    <Grid container spacing={3}>
-                      <Grid item xs={12} md={3}>
-                        <TextField
-                          label="Subscriber Name"
-                          required
-                          fullWidth
-                          size="small"
-                          value={subName}
-                          onChange={(e) => setSubName(e.target.value)}
-                          sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
-                        />
-                      </Grid>
-                      <Grid item xs={12} md={3}>
-                        <TextField
-                          label="Email Address"
-                          required
-                          type="email"
-                          fullWidth
-                          size="small"
-                          value={subEmail}
-
-                          onChange={(e) => setSubEmail(e.target.value)}
-                          sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
-                        />
-                      </Grid>
-                      <Grid item xs={12} md={3}>
-                        <TextField
-                          label="Plan Node ID"
-                          required
-                          fullWidth
-                          size="small"
-                          value={subPlan}
-                          onChange={(e) => setSubPlan(e.target.value)}
-                          sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
-                        />
-                      </Grid>
-                      <Grid item xs={12} md={3}>
-                        <TextField
-                          label="Invoice Cost"
-                          required
-                          type="number"
-
-                          fullWidth
-                          size="small"
-                          value={subAmount}
-                          onChange={(e) => setSubAmount(Number(e.target.value))}
-                          sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
-                        />
-                      </Grid>
-                      <Grid item xs={12} sx={{ display: 'flex', justifyContent: 'end', gap: 2, mt: 1 }}>
-                        <Button color="inherit" onClick={() => setShowAddSubForm(false)}>Discard</Button>
-                        <Button type="submit" variant="contained" color="primary">Commit Subscriber</Button>
-                      </Grid>
-                    </Grid>
-                  </form>
-                </Paper>
-              )}
-
-              {/* CONTRACTS TABLE */}
-              <TableContainer component={Paper} sx={{ overflowX: 'auto' }}>
+              {/* ORDERS TABLE */}
+              <TableContainer component={Paper}>
                 <Table>
                   <TableHead>
                     <TableRow>
-                      <TableCell>Client Context</TableCell>
-                      <TableCell>Network Tier</TableCell>
-                      <TableCell>Cost Node</TableCell>
-                      <TableCell>Compliance Status</TableCell>
-                      <TableCell>Due Parameter</TableCell>
-                      <TableCell align="right">Ledger Actions</TableCell>
+                      <TableCell>Customer Details</TableCell>
+                      <TableCell>Address & Slot</TableCell>
+                      <TableCell>Amount & Method</TableCell>
+                      <TableCell>Progress Stage</TableCell>
+                      <TableCell align="right">Actions</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {filteredSubscribers.map((sub) => (
-                      <TableRow key={sub.id} sx={{ '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.01)' } }}>
+                    {filteredOrders.map((ord) => (
+                      <TableRow key={ord.id}>
                         <TableCell>
-                          <Typography variant="body2" sx={{ fontWeight: 'bold' }}>{sub.name}</Typography>
-                          <Typography variant="caption" sx={{ color: 'text.secondary', fontFamily: 'monospace' }}>
-                            {sub.accountNo} • {sub.email}
+                          <Typography variant="body2" sx={{ fontWeight: 'bold' }}>{ord.customerName}</Typography>
+                          <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', fontFamily: 'monospace' }}>
+                            Acc: {ord.accountNo} | Ref: {ord.transactionId}
+                          </Typography>
+                          <Typography variant="caption" color="primary">{ord.customerEmail}</Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" sx={{ fontSize: '12px' }}>{ord.serviceAddress}</Typography>
+                          <Typography variant="caption" sx={{ color: 'success.main', fontWeight: 'bold' }}>
+                            Sched: {ord.installationDate} ({ord.installationSlot})
                           </Typography>
                         </TableCell>
                         <TableCell>
-                          <Typography variant="body2" color="primary" sx={{ fontWeight: 'bold' }}>{sub.plan}</Typography>
+                          <Typography variant="body2" sx={{ fontWeight: 'bold' }}>R {ord.amountPaid?.toFixed(2)}</Typography>
+                          <Chip label={ord.paymentMethod} size="small" variant="outlined" sx={{ fontSize: '9px', height: '18px' }} />
                         </TableCell>
                         <TableCell>
-                          <Typography variant="body2" sx={{ fontWeight: 'bold' }}>R {sub.amount}</Typography>
-                        </TableCell>
-                        <TableCell>
-                          <Button
-                            size="small"
-                            onClick={() => togglePaymentStatus(sub.id, sub.status, sub.name)}
-                            color={sub.status === 'Paid' ? 'success' : 'error'}
-                            sx={{
-                              fontSize: '10px',
-
-                              px: 1.5,
-                              py: 0.5,
-                              minWidth: 'auto',
-                              borderRadius: '20px',
-                              border: '1px solid',
-                              bgcolor: sub.status === 'Paid' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                            }}
-                          >
-                            {sub.status}
-                          </Button>
-                        </TableCell>
-                        <TableCell>
-                          <Typography variant="caption" sx={{ fontFamily: 'monospace', color: 'text.secondary' }}>{sub.dueDate}</Typography>
+                          <FormControl size="small" sx={{ minWidth: 180 }}>
+                            <Select
+                              value={ord.trackingStepIndex !== undefined ? ord.trackingStepIndex : 0}
+                              onChange={(e) => handleUpdateOrderStatus(ord.id, Number(e.target.value))}
+                              sx={{ fontSize: '12px', borderRadius: '12px' }}
+                            >
+                              {TRACKING_STEPS.map((stepName, idx) => (
+                                <MenuItem key={idx} value={idx}>
+                                  {idx + 1}. {stepName}
+                                </MenuItem>
+                              ))}
+                            </Select>
+                          </FormControl>
                         </TableCell>
                         <TableCell align="right">
                           <Box sx={{ display: 'flex', justifyContent: 'end', gap: 1 }}>
-                            <Tooltip title="Generate Receipt">
-                              <IconButton
-                                size="small"
-                                onClick={() => downloadAdminReport(sub)}
-                                sx={{ border: '1px solid rgba(255,255,255,0.05)', color: 'text.primary', '&:hover': { bgcolor: 'rgba(255,255,255,0.05)' } }}
-                              >
-                                <Download sx={{ fontSize: '18px' }} />
+                            <Tooltip title="Download Proof Document">
+                              <IconButton size="small" onClick={() => downloadOrderReceipt(ord)}>
+                                <Download fontSize="small" />
                               </IconButton>
                             </Tooltip>
-                            <Tooltip title="Cancel Contract">
-                              <IconButton
-                                size="small"
-                                onClick={() => handleRemoveSubscriber(sub.id, sub.name)}
-                                sx={{ color: 'error.main', border: '1px solid rgba(239, 68, 68, 0.2)', bgcolor: 'rgba(239, 68, 68, 0.05)' }}
-                              >
-                                <Delete sx={{ fontSize: '18px' }} />
+                            <Tooltip title="Cancel Contract Order">
+                              <IconButton size="small" color="error" onClick={() => handleRemoveOrder(ord.id, ord.customerName)}>
+                                <Delete fontSize="small" />
                               </IconButton>
                             </Tooltip>
                           </Box>
                         </TableCell>
                       </TableRow>
-
                     ))}
                   </TableBody>
                 </Table>
@@ -1466,40 +999,31 @@ The Connection Hub ISP Ltd.
               <Grid container spacing={4}>
                 <Grid item xs={12} lg={4}>
                   <Paper sx={{ p: 4 }}>
-                    <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>Voucher Engine</Typography>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>Promotional Voucher Engine</Typography>
                     <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 3 }}>
-                      Create promotional vouchers with customized discount percentage logic.
+                      Configured discount codes apply to public cart checkout.
                     </Typography>
 
                     <form onSubmit={handleAddPromo}>
-
-                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                         <TextField
-                          label="Voucher AlphaCode"
+                          label="Voucher Code"
                           required
                           value={newPromoCode}
                           onChange={(e) => setNewPromoCode(e.target.value)}
-                          placeholder="e.g. FLASH30"
-                          fullWidth
+                          placeholder="e.g. FIBRE50"
                           size="small"
-                          sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
                         />
-
                         <TextField
-                          label="Discount Fraction (%)"
+                          label="Discount Percentage (%)"
                           required
                           type="number"
                           value={newDiscount}
                           onChange={(e) => setNewDiscount(Number(e.target.value))}
-                          inputProps={{ min: 5, max: 100 }}
-                          fullWidth
-
                           size="small"
-                          sx={{ '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
                         />
-
-                        <Button type="submit" variant="contained" color="primary" fullWidth sx={{ py: 1.5 }}>
-                          Register Code Node
+                        <Button type="submit" variant="contained" color="primary">
+                          Register Voucher
                         </Button>
                       </Box>
                     </form>
@@ -1508,59 +1032,27 @@ The Connection Hub ISP Ltd.
 
                 <Grid item xs={12} lg={8}>
                   <Paper sx={{ p: 4 }}>
-                    <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 3 }}>Active Shop Discounts</Typography>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 3 }}>Active Vouchers</Typography>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                       {promoCodes.map((promo) => (
                         <Box
-
                           key={promo.id}
-                          sx={{
-                            p: 2.5,
-                            borderRadius: '16px',
-                            bgcolor: 'rgba(255,255,255,0.01)',
-                            border: '1px solid rgba(255,255,255,0.04)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            gap: 2,
-                            '&:hover': { bgcolor: 'rgba(255,255,255,0.02)' },
-                            transition: 'background-color 0.2s',
-                          }}
+                          sx={{ p: 2, borderRadius: '12px', bgcolor: 'rgba(0,0,0,0.02)', border: '1px solid rgba(0,0,0,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
                         >
                           <Box>
-                            <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 900, color: 'primary.main', letterSpacing: '0.5px' }}>
+                            <Typography variant="body2" sx={{ fontWeight: 'bold', color: 'primary.main', fontFamily: 'monospace' }}>
                               {promo.code}
                             </Typography>
-                            <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mt: 0.5 }}>
-                              Value discount: {promo.discountPercentage}% Off monthly tier
+                            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                              {promo.discountPercentage}% Discount
                             </Typography>
                           </Box>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                            <Button
-                              size="small"
-                              onClick={() => togglePromoActive(promo.id, promo.active)}
-                              sx={{
-                                fontSize: '10px',
-                                py: 0.5,
-                                px: 1.5,
-                                borderRadius: '12px',
-                                border: '1px solid',
-                                color: promo.active ? 'primary.main' : 'text.secondary',
-                                borderColor: promo.active ? 'rgba(6, 182, 212, 0.2)' : 'rgba(255,255,255,0.1)',
-                                bgcolor: promo.active ? 'rgba(6, 182, 212, 0.05)' : 'transparent',
-                              }}
-
-                            >
-                              {promo.active ? 'Active' : 'Disabled'}
-                            </Button>
-                            <IconButton
-                              size="small"
-                              onClick={() => handleDeletePromo(promo.id)}
-                              sx={{ color: 'error.main', border: '1px solid rgba(239, 68, 68, 0.2)', bgcolor: 'rgba(239, 68, 68, 0.05)' }}
-                            >
-                              <Delete sx={{ fontSize: '16px' }} />
-                            </IconButton>
-                          </Box>
+                          <IconButton size="small" color="error" onClick={async () => {
+                            await remove(ref(db, `promotions/${promo.id}`));
+                            showToast("Voucher removed.");
+                          }}>
+                            <Delete fontSize="small" />
+                          </IconButton>
                         </Box>
                       ))}
                     </Box>
@@ -1573,74 +1065,31 @@ The Connection Hub ISP Ltd.
           {/* TAB 5: SUPPORT TICKETS */}
           {activeTab === 'support' && (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <Box>
-                <Typography variant="h5" sx={{ fontWeight: 900 }}>Interactive Help Desk</Typography>
-                <Typography variant="body2" sx={{ color: 'text.secondary' }}>View customer service reports, issue resolutions, and diagnostic comments.</Typography>
-              </Box>
+              <Typography variant="h5" sx={{ fontWeight: 900 }}>Customer Support Tickets</Typography>
 
               <Grid container spacing={3}>
-                {tickets.map((ticket) => (
-                  <Grid item xs={12} md={6} key={ticket.id}>
-                    <Paper
-                      sx={{
-                        p: 3,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        justifyContent: 'space-between',
-
-                        height: '100%',
-                        position: 'relative',
-                        borderColor: ticket.status === 'Open' ? 'rgba(245, 158, 11, 0.2)' : 'rgba(255, 255, 255, 0.04)',
-                      }}
-                    >
-                      {ticket.status === 'Open' && (
-                        <Box
-                          sx={{
-                            position: 'absolute',
-                            top: 16,
-                            right: 16,
-                            width: '8px',
-                            height: '8px',
-                            bgcolor: 'warning.main',
-                            borderRadius: '50%',
-                          }}
-                        />
-                      )}
-
+                {tickets.map((t) => (
+                  <Grid item xs={12} md={6} key={t.id}>
+                    <Paper sx={{ p: 3, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%' }}>
                       <Box>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
-
-                          <Chip
-                            label={ticket.status}
-                            size="small"
-                            color={ticket.status === 'Open' ? 'warning' : 'success'}
-                            variant="outlined"
-                            sx={{ fontSize: '9px', fontWeight: 'bold', height: '20px' }}
-                          />
-                          <Typography variant="caption" sx={{ color: 'text.secondary', fontFamily: 'monospace' }}>
-                            {ticket.clientName}
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                          <Chip label={t.status} color={t.status === 'Open' ? 'warning' : 'success'} size="small" />
+                          <Typography variant="caption" sx={{ fontFamily: 'monospace', color: 'text.secondary' }}>
+                            {t.ticketNumber || t.id}
                           </Typography>
                         </Box>
 
                         <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
-                          {ticket.subject}
+                          Issue: {t.issueType || t.subject || 'Technical Support'}
                         </Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ mb: 3, lineHeight: '1.6' }}>
-                          {ticket.message}
-
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                          {t.message || 'Customer reported a service interruption on their Fibre line.'}
                         </Typography>
                       </Box>
 
-                      {ticket.status === 'Open' && (
-                        <Button
-                          variant="contained"
-                          color="success"
-                          fullWidth
-                          startIcon={<TaskAlt />}
-                          onClick={() => handleResolveTicket(ticket.id, ticket.clientName)}
-                          sx={{ color: '#000' }}
-                        >
-                          Mark Resolved
+                      {t.status !== 'Resolved' && (
+                        <Button variant="contained" color="success" size="small" onClick={() => handleResolveTicket(t.id)}>
+                          Mark Ticket Resolved
                         </Button>
                       )}
                     </Paper>
@@ -1649,8 +1098,44 @@ The Connection Hub ISP Ltd.
               </Grid>
             </Box>
           )}
-        </Container>
 
+          {/* TAB 6: COVERAGE LEADS */}
+          {activeTab === 'leads' && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <Typography variant="h5" sx={{ fontWeight: 900 }}>OpenServe GIS Coverage Leads</Typography>
+
+              <TableContainer component={Paper}>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Address Query</TableCell>
+                      <TableCell>Suburb & City</TableCell>
+                      <TableCell>Availability Status</TableCell>
+                      <TableCell>Timestamp</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {coverageLeads.map((lead) => (
+                      <TableRow key={lead.id}>
+                        <TableCell>{lead.street}</TableCell>
+                        <TableCell>{lead.suburb}, {lead.city || 'N/A'}</TableCell>
+                        <TableCell>
+                          <Chip
+                            label={lead.available ? 'Fibre Available' : 'No Coverage'}
+                            color={lead.available ? 'success' : 'error'}
+                            size="small"
+                          />
+                        </TableCell>
+                        <TableCell sx={{ fontFamily: 'monospace', fontSize: '11px' }}>{lead.timestamp}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Box>
+          )}
+
+        </Container>
 
         {/* FEEDBACK TOAST SNACKBAR */}
         <Snackbar
@@ -1659,29 +1144,11 @@ The Connection Hub ISP Ltd.
           onClose={() => setToast(null)}
           anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         >
-          <Alert
-            severity={toast?.severity || 'info'}
-            onClose={() => setToast(null)}
-            iconMapping={{
-              success: <CheckCircle fontSize="small" />,
-            }}
-            sx={{
-              bgcolor: 'background.paper',
-              backdropFilter: 'blur(15px)',
-              border: '1px solid rgba(6, 182, 212, 0.2)',
-              borderRadius: '16px',
-              color: 'text.primary',
-              fontSize: '11px',
-              fontWeight: 700,
-              fontFamily: 'monospace',
-
-              letterSpacing: '0.5px',
-              boxShadow: '0 0 50px rgba(6, 182, 212, 0.15)',
-            }}
-          >
+          <Alert severity={toast?.severity || 'info'} onClose={() => setToast(null)}>
             {toast?.message}
           </Alert>
         </Snackbar>
+
       </Box>
     </ThemeProvider>
   );
